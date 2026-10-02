@@ -19,6 +19,8 @@ class Settings:
         self.jwks_url = os.getenv("SUPABASE_JWKS_URL", "")
         # The secret key is intentionally unused: profile queries run with the
         # caller's token so Supabase Row Level Security remains in force.
+        # SESSION_POOLER_URL is reserved for server-side SQL migrations. API
+        # requests use the Supabase Data API with the caller's JWT, not this URL.
         if not self.supabase_url.startswith("https://") or not self.publishable_key:
             raise ConfigurationError("SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY are required")
 

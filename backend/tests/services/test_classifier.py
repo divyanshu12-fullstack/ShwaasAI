@@ -6,8 +6,9 @@ import numpy as np
 import pytest
 
 from backend.app.ml.preprocessor import AudioPreprocessor
+from backend.app.ml.feature_extractor import AcousticFeatureExtractor, FeatureExtractionError
 from backend.app.services.hear_service import HeARService
-from backend.app.services.classifier import RespiratoryClassifierService
+from backend.app.services.classifier import ModelInferenceError, RespiratoryClassifierService
 from backend.app.ml.aggregator import PatientAggregator
 from backend.app.models.request import ClinicalSymptoms
 
@@ -68,6 +69,46 @@ def test_classifier_service_predictions():
     assert multi_cat in ["Low Risk", "Moderate Risk", "High Risk"]
     # Severe symptoms should increase risk
     assert multi_risk >= tb_risk
+
+
+def test_pathology_uses_its_saved_scaler():
+    classifier = RespiratoryClassifierService()
+    calls = []
+
+    class Scaler:
+        def transform(self, values):
+            calls.append("scaled")
+            return values + 7
+
+    class Model:
+        def predict_proba(self, values):
+            assert calls == ["scaled"]
+            assert np.all(values == 7)
+            return np.array([[0.1, 0.7, 0.1, 0.1]])
+
+    classifier.scaler_pathology = Scaler()
+    classifier.model_pathology = Model()
+    pathology, confidence = classifier.predict_pathology(np.zeros(512, dtype=np.float32))
+    assert pathology == "Crackles Detected"
+    assert confidence == pytest.approx(0.7)
+
+
+def test_model_failure_does_not_return_a_default_score():
+    classifier = RespiratoryClassifierService()
+    classifier.model_forced = None
+    with pytest.raises(ModelInferenceError):
+        classifier.predict_tb_risk(np.zeros(512, dtype=np.float32), cough_type="forced")
+    classifier.model_pathology = None
+    with pytest.raises(ModelInferenceError):
+        classifier.predict_pathology(np.zeros(512, dtype=np.float32))
+
+
+def test_missing_training_feature_path_does_not_switch_representation(monkeypatch):
+    from backend.app.ml import feature_extractor
+    monkeypatch.setattr(feature_extractor, "HAS_LIBROSA", False)
+    extractor = AcousticFeatureExtractor()
+    with pytest.raises(FeatureExtractionError):
+        extractor.extract_features(np.zeros(32000, dtype=np.float32))
 
 
 def test_patient_aggregator():

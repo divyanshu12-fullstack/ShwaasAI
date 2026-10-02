@@ -8,7 +8,7 @@ Runs an end-to-end test on sample WAV audio files with or without clinical sympt
 4. Runs TB Dual-Head (Passive + Forced coughs)
 5. Detects respiratory sound pathologies (Normal, Crackles, Wheezes)
 6. Performs multimodal clinical symptom fusion
-7. Prints a publication-quality clinical triage report
+7. Prints a research demonstration report; scores are not clinically validated
 """
 
 import os
@@ -104,7 +104,7 @@ def run_live_screening(
     print(f" Dominant Pathology Sound:     {report.primary_pathology} (Confidence: {report.pathology_confidence*100:.1f}%)")
     if report.multimodal_risk_score is not None:
         print(f" Multimodal Risk Score:        {report.multimodal_risk_score:.4f} ({report.multimodal_risk_category})")
-    print(f" Analyzed Windows:             {report.total_windows_analyzed} ({report.windows_with_cough} with active cough)")
+    print(f" Analyzed Windows:             {report.total_windows_analyzed} ({report.windows_with_cough} above the sound activity threshold)")
 
     if report.most_suspicious_window:
         ms = report.most_suspicious_window

@@ -3,6 +3,7 @@ Pydantic schemas for ShwaasAI audio screening responses.
 """
 
 from typing import List, Optional
+from uuid import UUID
 from pydantic import BaseModel, Field
 
 
@@ -13,10 +14,10 @@ class AudioWindowScore(BaseModel):
     window_index: int = Field(..., description="0-indexed sequence of the 2-second slice")
     start_time_sec: float = Field(..., description="Start timestamp of the window in seconds")
     end_time_sec: float = Field(..., description="End timestamp of the window in seconds")
-    tb_risk_score: float = Field(..., ge=0.0, le=1.0, description="Calibrated TB probability score")
+    tb_risk_score: float = Field(..., ge=0.0, le=1.0, description="Research model score; clinical calibration has not been established")
     pathology: str = Field(..., description="Detected acoustic pattern (normal, crackles, wheezes, abnormal)")
     pathology_confidence: float = Field(..., ge=0.0, le=1.0, description="Pathology prediction confidence")
-    is_cough_detected: bool = Field(..., description="Whether a valid cough/respiratory sound was present")
+    is_cough_detected: bool = Field(..., description="Legacy name: RMS activity above the silence threshold; this is not cough detection")
     rms_energy: float = Field(..., description="Acoustic energy of this segment")
 
 
@@ -24,12 +25,13 @@ class PatientScreeningResponse(BaseModel):
     """
     Comprehensive screening report aggregated across all audio windows and clinical metadata.
     """
-    patient_id: Optional[str] = Field(default=None, description="Patient identifier if supplied")
+    session_id: Optional[UUID] = Field(default=None, description="Saved screening session")
+    patient_id: Optional[str] = Field(default=None, description="Legacy field; always null in authenticated analysis")
     status: str = Field(default="success", description="Status of the screening request")
     
     # Acoustic Cough Risk
     acoustic_tb_risk_score: float = Field(
-        ..., ge=0.0, le=1.0, description="Patient-level aggregated acoustic TB risk score"
+        ..., ge=0.0, le=1.0, description="Patient-level research acoustic score; not a validated TB probability"
     )
     acoustic_risk_category: str = Field(
         ..., description="Risk tier: 'Low Risk', 'Moderate Risk', or 'High Risk'"
@@ -54,7 +56,7 @@ class PatientScreeningResponse(BaseModel):
     # Window Metadata & Explainability
     total_audio_duration_sec: float = Field(..., description="Total length of input audio in seconds")
     total_windows_analyzed: int = Field(..., description="Total number of 2-second windows processed")
-    windows_with_cough: int = Field(..., description="Number of windows with valid cough acoustics")
+    windows_with_cough: int = Field(..., description="Legacy name: number of windows above the RMS activity threshold")
     most_suspicious_window: Optional[AudioWindowScore] = Field(
         default=None, description="The window that contributed most to the elevated risk score"
     )
@@ -64,7 +66,7 @@ class PatientScreeningResponse(BaseModel):
 
     # Clinical Triage & Disclaimer
     triage_recommendation: str = Field(
-        ..., description="Clinical triage advice based on WHO screening recommendations"
+        ..., description="Research screening follow-up text; not validated medical advice"
     )
     disclaimer: str = Field(
         default=(

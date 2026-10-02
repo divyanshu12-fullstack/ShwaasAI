@@ -3,7 +3,8 @@ Pydantic schemas for ShwaasAI audio screening requests.
 """
 
 from typing import Optional
-from pydantic import BaseModel, Field
+from uuid import UUID
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ClinicalSymptoms(BaseModel):
@@ -56,18 +57,10 @@ class AudioScreeningRequest(BaseModel):
     """
     Request payload containing base64 audio and optional clinical metadata.
     """
-    audio_base64: Optional[str] = Field(
-        default=None,
-        description="Base64 encoded audio string (WAV, MP3, WebM, OGG)"
-    )
-    patient_id: Optional[str] = Field(
-        default=None,
-        description="Optional patient identifier"
-    )
-    cough_type: Optional[str] = Field(
-        default="both",
-        description="Type of cough recorded: 'passive', 'forced', or 'both'"
-    )
+    model_config = ConfigDict(extra="forbid")
+
+    session_id: UUID
+    audio_base64: str = Field(description="Base64-encoded WAV file; preprocessing creates 16 kHz waveform windows")
     symptoms: Optional[ClinicalSymptoms] = Field(
         default=None,
         description="Optional clinical symptoms for multimodal risk boost"

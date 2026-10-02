@@ -3,7 +3,7 @@ HeAR (Health Acoustic Representations) embedding service for ShwaasAI.
 
 Manages:
 - Google HeAR foundation model inference (when model weights are loaded/available)
-- Fallback to calibrated 512-dimensional acoustic health feature extractor
+- 512-dimensional acoustic feature extractor used by the bundled heads
 - Batch window embedding generation
 """
 
@@ -29,7 +29,7 @@ class HeARService:
     Maps 2.0-second 16-kHz audio segments into 512-dimensional health embeddings.
     """
 
-    def __init__(self, model_dir: Optional[str] = None):
+    def __init__(self, model_dir: Optional[str] = None, enable_foundation_model: bool = False):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.fallback_extractor = AcousticFeatureExtractor()
         self.hear_model = None
@@ -41,7 +41,13 @@ class HeARService:
             model_dir = os.path.join(base_dir, "ml", "weights")
         self.model_dir = model_dir
 
-        self._initialize_model()
+        # Shipped classifier heads were trained on AcousticFeatureExtractor
+        # vectors. Equal dimensionality does not make HeAR vectors compatible.
+        # A future HeAR-trained head must opt in to that extractor explicitly.
+        if enable_foundation_model:
+            self._initialize_model()
+        else:
+            logger.info("Using the acoustic extractor matched to the shipped classifier heads.")
 
     def _initialize_model(self):
         """
@@ -84,9 +90,7 @@ class HeARService:
             except Exception:
                 pass
 
-        logger.info(
-            "Using ShwaasAI calibrated 512-D health acoustic extractor (HeAR-aligned fallback)."
-        )
+        logger.info("Using the 512-D acoustic extractor; HeAR is unavailable.")
 
     def extract_embedding(self, audio_2s: np.ndarray) -> np.ndarray:
         """
@@ -102,13 +106,12 @@ class HeARService:
                     elif isinstance(output, torch.Tensor):
                         emb = output.cpu().numpy()[0]
                     else:
-                        emb = self.fallback_extractor.extract_features(audio_2s)
+                        raise ValueError("Unexpected HeAR model output")
                     # Normalize
                     norm = np.linalg.norm(emb) + 1e-8
                     return (emb / norm).astype(np.float32)
             except Exception as e:
-                logger.warning(f"HeAR neural forward failed ({e}), using acoustic feature extractor.")
-                return self.fallback_extractor.extract_features(audio_2s)
+                raise RuntimeError("HeAR neural forward failed") from e
         else:
             return self.fallback_extractor.extract_features(audio_2s)
 

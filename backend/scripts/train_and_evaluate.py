@@ -152,14 +152,19 @@ def run_5fold_benchmark(
         )
         xgb_path.fit(X_aud_train_sc, y_path_train)
         path_pred = xgb_path.predict(X_aud_val_sc)
+        path_prob = xgb_path.predict_proba(X_aud_val_sc)
         path_acc = accuracy_score(y_path_val, path_pred)
         path_bacc = balanced_accuracy_score(y_path_val, path_pred)
         path_f1 = f1_score(y_path_val, path_pred, average="weighted")
+        try:
+            path_auc = roc_auc_score(y_path_val, path_prob, multi_class="ovr", labels=np.arange(4))
+        except ValueError:
+            path_auc = float("nan")
         results["Model_Pathology_Acoustic"].append({
             "Accuracy": float(path_acc),
             "Balanced_Accuracy": float(path_bacc),
             "F1_Score": float(path_f1),
-            "AUROC": 0.985,  # multi-class macro AUC
+            "AUROC": float(path_auc),
             "Sensitivity": float(path_bacc),
             "Specificity": float(path_acc)
         })
@@ -210,10 +215,8 @@ def print_scientific_report(results: Dict[str, List[Dict[str, float]]]):
         print(f"{clean_name:<30} | {avg_acc:>8.2f}% | {avg_auc:>9.3f}  | {avg_sens:>10.2f}% | {avg_spec:>10.2f}% | {avg_f1:>8.2f}%")
 
     print("="*88)
-    print(" KEY RESEARCH FINDING:")
-    print(" - Acoustic-only features achieve ~82% - 87% AUROC due to cough acoustic overlap.")
-    print(" - Multimodal Fusion (Acoustic + Clinical Symptoms) achieves >95% AUROC and Sensitivity,")
-    print("   exceeding the WHO Triage Benchmark (Sensitivity >=80%, Specificity >=70%).")
+    print(" These benchmark results describe this dataset only. Synthetic coughs and")
+    print(" their generated labels cannot establish clinical accuracy or calibration.")
     print("="*88 + "\n")
 
 

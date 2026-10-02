@@ -21,6 +21,10 @@ except ImportError:
     HAS_LIBROSA = False
 
 
+class FeatureExtractionError(RuntimeError):
+    """The feature representation expected by the packaged heads could not be made."""
+
+
 class AcousticFeatureExtractor:
     """
     Extracts 512-dimensional health-acoustic feature representations from 2.0s audio clips.
@@ -137,9 +141,15 @@ class AcousticFeatureExtractor:
         elif len(audio_2s) > 32000:
             audio_2s = audio_2s[:32000]
 
-        if HAS_LIBROSA:
-            try:
-                return self.extract_with_librosa(audio_2s)
-            except Exception:
-                return self.extract_pure_scipy(audio_2s)
-        return self.extract_pure_scipy(audio_2s)
+        # The packaged classifiers were trained with this exact feature layout.
+        # The SciPy implementation above is a different representation, even
+        # though it also has 512 values, and cannot be substituted at inference.
+        if not HAS_LIBROSA:
+            raise FeatureExtractionError("librosa feature extractor is unavailable")
+        try:
+            features = self.extract_with_librosa(audio_2s)
+            if features.shape != (512,) or not np.all(np.isfinite(features)):
+                raise ValueError("Invalid acoustic features")
+            return features
+        except Exception as exc:
+            raise FeatureExtractionError("Acoustic feature extraction failed") from exc

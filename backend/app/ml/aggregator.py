@@ -101,8 +101,8 @@ class PatientAggregator:
             )
         else:
             return (
-                "Low Risk: Cough acoustics and clinical indicators do not indicate elevated presumptive-TB risk. "
-                "Maintain standard health precautions and consult a doctor if symptoms develop."
+                "The research model returned a lower score. This does not rule out TB or other "
+                "illness. Consult a healthcare professional if symptoms develop or persist."
             )
 
     def build_screening_response(

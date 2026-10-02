@@ -5,9 +5,11 @@ from fastapi import APIRouter, Depends, Query, Response, status
 
 from backend.app.core.config import Settings, get_settings
 from backend.app.core.security import AuthenticatedUser, get_current_user
-from backend.app.models.session import InputType, SessionCreate, SessionList, SessionMetadataRead, SessionMetadataWrite, SessionRead
+from backend.app.models.session import EmbeddingRead, InputType, SessionCreate, SessionList, SessionMetadataRead, SessionMetadataWrite, SessionRead, SessionStats
+from backend.app.services.embedding_service import EmbeddingService
 from backend.app.services.metadata_service import MetadataService
 from backend.app.services.session_service import SessionService
+from backend.app.services.session_stats_service import SessionStatsService
 
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
@@ -34,6 +36,14 @@ async def list_sessions(
 ) -> SessionList:
     rows = await SessionService(settings, user.access_token).list(user.id, limit, offset, input_type, sort)
     return SessionList(sessions=[SessionRead.model_validate(row) for row in rows], limit=limit, offset=offset)
+
+
+@router.get("/stats", response_model=SessionStats)
+async def get_session_stats(
+    user: AuthenticatedUser = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
+) -> SessionStats:
+    return await SessionStatsService(settings, user.access_token).get()
 
 
 @router.get("/{session_id}", response_model=SessionRead)
@@ -75,3 +85,12 @@ async def replace_session_metadata(
 ) -> SessionMetadataRead:
     row = await MetadataService(settings, user.access_token).replace(user.id, session_id, metadata)
     return SessionMetadataRead.model_validate(row)
+
+
+@router.get("/{session_id}/embedding", response_model=EmbeddingRead)
+async def get_session_embedding(
+    session_id: UUID,
+    user: AuthenticatedUser = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
+) -> EmbeddingRead:
+    return await EmbeddingService(settings, user.access_token).get(user.id, session_id)

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
 
@@ -63,3 +63,41 @@ class SessionMetadataRead(SessionMetadataWrite):
     session_id: UUID
     created_at: datetime
     updated_at: datetime
+
+
+class EmbeddingRead(BaseModel):
+    session_id: UUID
+    embedding_data: list[float]
+    embedding_dim: int = Field(gt=0)
+    stored_at: datetime
+
+    @model_validator(mode="after")
+    def dimension_matches_data(self) -> "EmbeddingRead":
+        if len(self.embedding_data) != self.embedding_dim:
+            raise ValueError("embedding_dim must match embedding_data length")
+        return self
+
+
+class RiskDistribution(BaseModel):
+    Low: int = Field(ge=0)
+    Moderate: int = Field(ge=0)
+    High: int = Field(ge=0)
+
+
+class InputTypeBreakdown(BaseModel):
+    cough: int = Field(ge=0)
+    breathing: int = Field(ge=0)
+
+
+class RiskTrendPoint(BaseModel):
+    date: date
+    risk_score: int = Field(ge=0, le=100)
+
+
+class SessionStats(BaseModel):
+    total_screenings: int = Field(ge=0)
+    last_screened_at: datetime | None
+    average_risk_score: float | None = Field(ge=0, le=100)
+    risk_distribution: RiskDistribution
+    input_type_breakdown: InputTypeBreakdown
+    risk_trend: list[RiskTrendPoint]

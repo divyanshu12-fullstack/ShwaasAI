@@ -13,6 +13,10 @@ from typing import Dict, Any, Optional, List, Tuple
 import numpy as np
 import joblib
 
+
+class ModelInferenceError(RuntimeError):
+    """A required model is unavailable or could not produce a valid prediction."""
+
 logger = logging.getLogger(__name__)
 
 PATHOLOGY_CLASSES = [
@@ -40,6 +44,7 @@ class RespiratoryClassifierService:
         self.model_forced = None
         self.scaler_forced = None
         self.model_pathology = None
+        self.scaler_pathology = None
         self.model_multimodal = None
 
         self._load_or_initialize_weights()
@@ -47,7 +52,7 @@ class RespiratoryClassifierService:
     def _load_or_initialize_weights(self):
         """
         Attempts to load pretrained weights from disk.
-        If not yet present, initializes calibrated baseline classifiers.
+        Loads the packaged classifier heads. Missing heads fail closed at inference.
         """
         # 1. Dual-head TB model
         tb_weights_path = os.path.join(self.weights_dir, "shwaas_tb_dual_head.joblib")
@@ -72,6 +77,7 @@ class RespiratoryClassifierService:
             try:
                 pkg = joblib.load(pathology_path)
                 self.model_pathology = pkg.get("model")
+                self.scaler_pathology = pkg.get("scaler")
                 logger.info(f"Loaded Pathology model from {pathology_path}")
             except Exception as e:
                 logger.warning(f"Failed loading Pathology model from {pathology_path}: {e}")
@@ -88,39 +94,25 @@ class RespiratoryClassifierService:
 
     def predict_tb_risk(self, embedding_512: np.ndarray, cough_type: str = "both") -> float:
         """
-        Predicts TB probability from 512-dim embedding using dual passive/forced heads.
+        Returns a research model score from the passive or forced cough head.
         """
         x = embedding_512.reshape(1, -1)
 
-        p_passive = 0.5
-        p_forced = 0.5
-
-        if self.model_passive is not None:
-            try:
-                xp = self.scaler_passive.transform(x) if self.scaler_passive else x
-                p_passive = float(self.model_passive.predict_proba(xp)[0, 1])
-            except Exception:
-                p_passive = 0.5
-        else:
-            # Calibrated mathematical acoustic heuristic on 512-dim feature vector
-            # (TB coughs show higher energy in low-frequency sub-band and spectral turbulence)
-            p_passive = float(np.clip(0.3 + 0.4 * np.mean(embedding_512[:64]) / (np.std(embedding_512) + 1e-4), 0.05, 0.95))
-
-        if self.model_forced is not None:
-            try:
-                xf = self.scaler_forced.transform(x) if self.scaler_forced else x
-                p_forced = float(self.model_forced.predict_proba(xf)[0, 1])
-            except Exception:
-                p_forced = 0.5
-        else:
-            p_forced = float(np.clip(0.35 + 0.35 * np.mean(embedding_512[64:128]) / (np.std(embedding_512) + 1e-4), 0.05, 0.95))
-
         if cough_type == "passive":
-            return p_passive
+            heads = ((self.model_passive, self.scaler_passive),)
         elif cough_type == "forced":
-            return p_forced
+            heads = ((self.model_forced, self.scaler_forced),)
         else:
-            return round((p_passive + p_forced) / 2.0, 4)
+            heads = ((self.model_passive, self.scaler_passive), (self.model_forced, self.scaler_forced))
+        if any(model is None or scaler is None for model, scaler in heads):
+            raise ModelInferenceError("Required TB classifier head is unavailable")
+        try:
+            scores = [float(model.predict_proba(scaler.transform(x))[0, 1]) for model, scaler in heads]
+            if not all(np.isfinite(score) and 0 <= score <= 1 for score in scores):
+                raise ValueError("Invalid TB classifier output")
+        except Exception as exc:
+            raise ModelInferenceError("TB classifier inference failed") from exc
+        return round(float(np.mean(scores)), 4)
 
     def predict_pathology(self, embedding_512: np.ndarray) -> Tuple[str, float]:
         """
@@ -128,23 +120,16 @@ class RespiratoryClassifierService:
         """
         x = embedding_512.reshape(1, -1)
 
-        if self.model_pathology is not None:
-            try:
-                probs = self.model_pathology.predict_proba(x)[0]
-                pred_idx = int(np.argmax(probs))
-                return PATHOLOGY_CLASSES[pred_idx], float(probs[pred_idx])
-            except Exception:
-                pass
-
-        # Calibrated default rule-based check on spectral dynamics
-        spec_std = float(np.std(embedding_512))
-        spec_max = float(np.max(embedding_512))
-        if spec_max > 0.3 and spec_std > 0.04:
-            return PATHOLOGY_CLASSES[1], 0.72  # Crackles
-        elif spec_max > 0.2 and spec_std > 0.03:
-            return PATHOLOGY_CLASSES[2], 0.68  # Wheezes
-        else:
-            return PATHOLOGY_CLASSES[0], 0.89  # Normal
+        if self.model_pathology is None or self.scaler_pathology is None:
+            raise ModelInferenceError("Pathology classifier is unavailable")
+        try:
+            probs = self.model_pathology.predict_proba(self.scaler_pathology.transform(x))[0]
+            if len(probs) != len(PATHOLOGY_CLASSES) or not np.all(np.isfinite(probs)):
+                raise ValueError("Invalid pathology classifier output")
+            pred_idx = int(np.argmax(probs))
+            return PATHOLOGY_CLASSES[pred_idx], float(probs[pred_idx])
+        except Exception as exc:
+            raise ModelInferenceError("Pathology classifier inference failed") from exc
 
     def encode_clinical_symptoms(self, symptoms: Any) -> np.ndarray:
         """
@@ -181,8 +166,8 @@ class RespiratoryClassifierService:
         self, acoustic_score: float, symptoms: Any
     ) -> Tuple[float, str]:
         """
-        Fuses acoustic risk score with clinical symptoms using Bayesian/Logistic calibration.
-        Significantly increases AUROC and clinical sensitivity.
+        Combines the acoustic model score with clinical symptoms. This blend has
+        not been independently calibrated or clinically validated.
         """
         symptom_vec = self.encode_clinical_symptoms(symptoms)
 
@@ -205,21 +190,15 @@ class RespiratoryClassifierService:
             1.0
         ))
 
-        if self.model_multimodal is not None:
-            try:
-                fusion_input = np.concatenate([[acoustic_score], symptom_vec]).reshape(1, -1)
-                ml_prob = float(self.model_multimodal.predict_proba(fusion_input)[0, 1])
-                # Harmonize tree probability with clinical prior so severe symptoms elevate screening
-                prob = float(np.clip(0.6 * ml_prob + 0.4 * max(acoustic_score, clinical_risk), 0.01, 0.99))
-                category = "High Risk" if prob >= 0.60 else ("Moderate Risk" if prob >= 0.35 else "Low Risk")
-                return round(prob, 4), category
-            except Exception:
-                pass
-
-        # Fallback logistic blend
-        logit = 2.5 * (acoustic_score - 0.5) + 2.5 * (clinical_risk - 0.3)
-        fused_prob = 1.0 / (1.0 + np.exp(-logit))
-        fused_prob = float(np.clip(fused_prob, 0.01, 0.99))
-
-        category = "High Risk" if fused_prob >= 0.60 else ("Moderate Risk" if fused_prob >= 0.35 else "Low Risk")
-        return round(fused_prob, 4), category
+        if self.model_multimodal is None:
+            raise ModelInferenceError("Multimodal classifier is unavailable")
+        try:
+            fusion_input = np.concatenate([[acoustic_score], symptom_vec]).reshape(1, -1)
+            ml_prob = float(self.model_multimodal.predict_proba(fusion_input)[0, 1])
+            if not np.isfinite(ml_prob) or not 0 <= ml_prob <= 1:
+                raise ValueError("Invalid multimodal classifier output")
+            prob = float(np.clip(0.6 * ml_prob + 0.4 * max(acoustic_score, clinical_risk), 0.01, 0.99))
+            category = "High Risk" if prob >= 0.60 else ("Moderate Risk" if prob >= 0.35 else "Low Risk")
+            return round(prob, 4), category
+        except Exception as exc:
+            raise ModelInferenceError("Multimodal classifier inference failed") from exc

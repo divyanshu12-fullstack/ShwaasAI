@@ -1,25 +1,23 @@
 # 🫁 ShwaasAI-ML: Acoustic Respiratory Disease Screening & Multimodal Health Intelligence Engine
 
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.109+-009688.svg?logo=fastapi)](https://fastapi.tiangolo.com)
+[![Python 3.10–3.12](https://img.shields.io/badge/python-3.10--3.12-blue.svg)](https://www.python.org/downloads/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg?logo=fastapi)](https://fastapi.tiangolo.com)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-EE4C2C.svg?logo=pytorch)](https://pytorch.org)
-[![XGBoost](https://img.shields.io/badge/XGBoost-1.7+-green.svg)](https://xgboost.readthedocs.io/)
-[![WHO TPP Compliant](https://img.shields.io/badge/WHO_TPP-Exceeded-success.svg)](https://www.who.int/publications/i/item/9789241507745)
-[![Tests Passing](https://img.shields.io/badge/Tests-7%2F7%20Passed-brightgreen.svg)](#testing--quality-assurance)
+[![XGBoost](https://img.shields.io/badge/XGBoost-2.0+-green.svg)](https://xgboost.readthedocs.io/)
 [![License: CC0-1.0](https://img.shields.io/badge/License-CC0_1.0-lightgrey.svg)](LICENSE)
 
-**ShwaasAI-ML** is an AI-assisted acoustic respiratory screening system. It leverages **Google HeAR (Health Acoustic Representations)**, dual-head cough analytics (differentiating passive vs. forced coughs), 4-class respiratory sound pathology detection, and multimodal Bayesian clinical symptom fusion to enable rapid, non-invasive triage for presumptive Tuberculosis (TB) and abnormal lung conditions in primary care and resource-constrained environments.
+**ShwaasAI-ML** is a research respiratory sound screening prototype. The current backend accepts authenticated WAV recordings for cough sessions, extracts 512-value acoustic features, and runs packaged passive/forced cough, pathology, and optional symptom-fusion classifier heads. Its scores are not clinically validated TB probabilities. The bundled heads do not use Google HeAR embeddings; enabling HeAR requires compatible retrained heads.
 
 ---
 
 ## 📌 Executive Summary & Key Highlights
 
-* **Health Acoustic Representations (512-D)**: Slices raw audio into 2.0-second 16 kHz windows and maps them into 512-dimensional acoustic health embeddings via Google HeAR with acoustic physics fallback.
+* **Acoustic features (512-D)**: Slices WAV audio into 2.0-second 16 kHz windows and extracts the Mel/MFCC feature layout used by the packaged heads.
 * **Dual-Head TB Acoustic Screener**: Separate XGBoost classifiers trained on passive and forced cough dynamics to resolve acoustic variability across different cough types.
 * **Respiratory Sound Pathology Head**: 4-class classification detecting *Normal Respiratory Sound, Crackles Detected, Wheezes Detected, and Combined Crackles & Wheezes*.
-* **Multimodal Clinical Symptom Fusion**: Bayesian & Gradient Boosting fusion engine combining acoustic probabilities with clinical metadata (age, cough duration, fever, night sweats, hemoptysis, weight loss, smoking status).
-* **WHO Triage Compliance**: Exceeds the **World Health Organization (WHO) Target Product Profile (TPP)** benchmarks for TB triage (Target: $\ge 80\%$ Sensitivity, $\ge 70\%$ Specificity).
-* **Production-Ready FastAPI Server**: Complete with Swagger/OpenAPI documentation, base64 payload ingestion, and multipart audio file upload handlers.
+* **Optional symptom fusion**: Combines the acoustic score with submitted symptom answers. Stored session metadata is not yet connected to this input.
+* **Authenticated FastAPI routes**: Supabase Auth, owner-scoped sessions, statistics, metadata, embeddings, WAV analysis, health, and OpenAPI documentation.
+* **Research status**: Model provenance, external validation, score calibration, and real mobile recorder integration remain release requirements.
 
 ---
 
@@ -28,20 +26,20 @@
 ```
                      ┌──────────────────────────────────────────────┐
                      │           Patient Audio Input                │
-                     │       (WAV, MP3, WebM, OGG Audio)            │
+                     │              (WAV audio)                     │
                      └──────────────────────┬───────────────────────┘
                                             │
                                             ▼
                      ┌──────────────────────────────────────────────┐
                      │          Audio Preprocessor                  │
                      │  • Resample to 16 kHz Mono                   │
-                     │  • Butterworth Bandpass Filter (100-4000 Hz) │
+                     │  • Normalize amplitude and gate silence     │
                      │  • Window Slicing (2.0s with 50% overlap)    │
                      └──────────────────────┬───────────────────────┘
                                             │
                                             ▼
                      ┌──────────────────────────────────────────────┐
-                     │        HeAR / Acoustic Embeddings            │
+                     │     Mel/MFCC Acoustic Feature Vectors       │
                      │    Extract 512-D Health Representations      │
                      └──────────────┬───────────────────────────────┘
                                     │
@@ -65,35 +63,18 @@
                                         │
                                         ▼
                      ┌──────────────────────────────────────────────┐
-                     │     Patient Aggregator & WHO Triage          │
+                     │     Research Score Aggregation              │
                      │  • Blended Score (Peak + Weighted Energy)    │
                      │  • Risk Tier: Low / Moderate / High Risk     │
-                     │  • Clinical Actionable Referral Guidance     │
+                     │  • Follow-up text with a medical disclaimer  │
                      └──────────────────────────────────────────────┘
 ```
 
 ---
 
-## 📊 Empirical Benchmarks & Cross-Validation Results
+## 📊 Model evaluation status
 
-The system was evaluated via **5-Fold Stratified Cross-Validation** across diverse clinical acoustic and epidemiological profiles:
-
-| Model Architecture | Accuracy | AUROC | Sensitivity (Recall) | Specificity | F1-Score |
-| :--- | :---: | :---: | :---: | :---: | :---: |
-| **Baseline Random Forest (Acoustic)** | 100.00% | 1.000 | 100.00% | 100.00% | 100.00% |
-| **XGBoost Acoustic TB Screener** | **99.00%** | **1.000** | **100.00%** | **98.00%** | **99.05%** |
-| **Multimodal Fusion (Acoustic + Clinical)** | **99.00%** | **0.990** | **100.00%** | **98.00%** | **99.05%** |
-| **Pathology Sound Classifier (4-Class)** | **83.00%** | **0.985** | **64.12%** | **83.00%** | **82.82%** |
-
-### Comparison with WHO Target Product Profile (TPP)
-
-```
-Metric                 WHO Minimum TPP Requirement     ShwaasAI-ML Performance
----------------------------------------------------------------------------------
-Sensitivity (Recall)   ≥ 80.0%                         100.00%  (Passed / +20.0%)
-Specificity            ≥ 70.0%                         98.00%   (Passed / +28.0%)
-AUROC                  ≥ 0.850                         0.990    (Passed / +0.140)
-```
+The repository contains a cross-validation script that can train and evaluate on generated synthetic cough recordings. These results cannot establish sensitivity, specificity, AUROC, or WHO target-product-profile compliance on real patients. The checked-in artifacts lack documented real-patient training provenance and independent external validation. Clinical performance and score thresholds must be measured on representative held-out labeled recordings before any deployment for patient decisions.
 
 ---
 
@@ -105,9 +86,9 @@ ShwaasAI-ML/
 │   ├── app/
 │   │   ├── api/
 │   │   │   └── routers/
-│   │   │       └── analyze.py          # FastAPI screening routes (/audio, /upload, /status)
+│   │   │       └── analyze.py          # Authenticated waveform screening routes
 │   │   ├── ml/
-│   │   │   ├── aggregator.py           # Patient-level aggregation & WHO triage engine
+│   │   │   ├── aggregator.py           # Research score aggregation
 │   │   │   ├── data_engine.py          # Acoustic physics synthesis & benchmark loader
 │   │   │   ├── feature_extractor.py    # 512-D health acoustic feature representation
 │   │   │   ├── preprocessor.py         # 16kHz audio normalization & 2s windowing
@@ -187,19 +168,17 @@ This covers the auth, session, metadata, analysis API, and classifier tests.
 
 ## 🩺 Running Live Audio Screening (CLI Demo)
 
-Test the engine on authentic cough audio files directly from the command line:
+Test the engine on the repository's example WAV files directly from the command line. These files and their names do not establish clinical ground truth:
 
 ### Test Healthy Cough Sample:
 ```bash
 python backend/scripts/test_live_audio.py --audio data/samples/cough_healthy_forced.wav --cough_days 0
 ```
-*Output: Acoustic TB Risk: `0.0200` (Low Risk) | Recommendation: Standard Health Precautions*
 
 ### Test Suspicious Pathological Sample with Clinical Symptoms:
 ```bash
 python backend/scripts/test_live_audio.py --audio data/samples/cough_tb_suspicious.wav --fever --night_sweats --cough_days 21
 ```
-*Output: Acoustic TB Risk: `0.9614` | Multimodal Risk: `0.9845` (High Risk) | Pathology: Crackles Detected | Recommendation: Priority Confirmatory Referral*
 
 ---
 
@@ -213,14 +192,16 @@ uv run --project backend uvicorn backend.main:app --host 0.0.0.0 --port 8000 --r
 
 * **Interactive Swagger Documentation**: [http://localhost:8000/docs](http://localhost:8000/docs)
 * **Alternative Redoc Documentation**: [http://localhost:8000/redoc](http://localhost:8000/redoc)
+* **Service health**: `GET /api/v1/health`; **current API capabilities**: `GET /api/v1/info`
 
 ### Example API Request (`POST /api/v1/analyze/audio`)
+
+Create a pending cough session through `POST /api/v1/sessions` first. Send the Supabase access token in `Authorization: Bearer <access_token>` with the analysis request. The model receives server-generated 16 kHz waveform windows from WAV audio; the mobile app does not send spectrograms or embeddings.
 
 ```json
 {
   "audio_base64": "UklGRiQAAABXQVZFZm10IBAAAAABAAEA...",
-  "patient_id": "PAT_DEMO_2026",
-  "cough_type": "both",
+  "session_id": "<session_uuid>",
   "symptoms": {
     "age": 42,
     "gender": "male",
@@ -239,7 +220,8 @@ uv run --project backend uvicorn backend.main:app --host 0.0.0.0 --port 8000 --r
 
 ```json
 {
-  "patient_id": "PAT_DEMO_2026",
+  "session_id": "<session_uuid>",
+  "patient_id": null,
   "status": "success",
   "acoustic_tb_risk_score": 0.9614,
   "acoustic_risk_category": "High Risk",
@@ -264,6 +246,9 @@ uv run --project backend uvicorn backend.main:app --host 0.0.0.0 --port 8000 --r
   "disclaimer": "ShwaasAI is a research-oriented screening and risk-prioritization tool, not a definitive medical diagnostic device. A high risk score indicates need for clinical confirmation via microbiological tests. Always consult a qualified healthcare professional."
 }
 ```
+
+The example scores are illustrative. `POST /api/v1/analyze` also accepts multipart WAV audio with `session_id`, `file`, and optional JSON `symptoms` form fields. Both routes require ownership of a pending cough session and save the result and pooled embedding. The current classifier does not support a separate breathing TB risk head.
+The backend deliberately uses the declared `librosa` acoustic feature path with its packaged heads. Google HeAR cannot be swapped in based only on equal embedding length; check `/api/v1/analyze/status` at runtime. The legacy `is_cough_detected` field indicates an RMS sound activity threshold, not a trained cough detector.
 
 ---
 

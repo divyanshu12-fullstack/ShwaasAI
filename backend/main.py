@@ -3,47 +3,47 @@ ShwaasAI Backend Application Entry Point.
 """
 
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 
+from backend.app.core.deployment import DeploymentMiddleware, DeploymentSettings
 from backend.app.api.routers.auth import router as auth_router
 from backend.app.api.routers.analyze import router as analyze_router
 from backend.app.api.routers.sessions import router as sessions_router
+from backend.app.api.routers.system import router as system_router
 
-app = FastAPI(
-    title="ShwaasAI Respiratory Health Screening API",
-    description=(
-        "AI-assisted respiratory health acoustic screening service using Google HeAR "
-        "embeddings, dual-head TB screening, respiratory sound pathology classification, "
-        "and multimodal clinical symptom fusion."
-    ),
-    version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc"
-)
+def create_app(deployment: DeploymentSettings | None = None) -> FastAPI:
+    deployment = deployment or DeploymentSettings.from_env()
+    application = FastAPI(
+        title="ShwaasAI Respiratory Health Screening API",
+        description=(
+            "Research respiratory sound screening API. The bundled classifier heads use a "
+            "512-value acoustic feature extractor and have not been clinically validated. "
+            "HeAR inference requires separately trained compatible classifier heads."
+        ),
+        version="1.0.0",
+        docs_url="/docs",
+        redoc_url="/redoc",
+    )
 
-# Enable CORS for React/Vite/PWA frontend
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+    application.add_middleware(DeploymentMiddleware, settings=deployment)
 
-# Include API Routers
-app.include_router(auth_router, prefix="/api/v1")
-app.include_router(sessions_router, prefix="/api/v1")
-app.include_router(analyze_router)
+    application.include_router(auth_router, prefix="/api/v1")
+    application.include_router(sessions_router, prefix="/api/v1")
+    application.include_router(analyze_router)
+    application.include_router(system_router)
+
+    @application.get("/")
+    def root():
+        return {
+            "project": "ShwaasAI",
+            "description": "AI-Assisted Respiratory Health Screening System",
+            "documentation": "/docs",
+            "status": "online",
+        }
+
+    return application
 
 
-@app.get("/")
-def root():
-    return {
-        "project": "ShwaasAI",
-        "description": "AI-Assisted Respiratory Health Screening System",
-        "documentation": "/docs",
-        "status": "online"
-    }
+app = create_app()
 
 
 if __name__ == "__main__":

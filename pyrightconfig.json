@@ -1,0 +1,14 @@
+{
+  "include": [
+    "backend"
+  ],
+  "extraPaths": [
+    ".",
+    "backend",
+    "C:\\Python311\\Lib\\site-packages"
+  ],
+  "pythonPlatform": "Windows",
+  "pythonVersion": "3.11",
+  "reportMissingImports": "none",
+  "reportMissingTypeStubs": false
+}

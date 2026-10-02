@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+**/.cache/
+
+# IDE and Editor
+.vscode/
+**/.vscode/
+.idea/
+*.swp
+
+# Sensitive credentials
+.env
+*.env
+backend/.env
+
+# Large raw datasets
+data/coswara/*.tar.gz
+data/coswara/extracted/
+data/icbhi/
+data/coughvid/
+temp_*/
+
+# OS files
+.DS_Store
+Thumbs.db
+

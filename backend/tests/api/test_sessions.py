@@ -5,8 +5,8 @@ from uuid import UUID
 import httpx
 import pytest
 
-from app.core.config import get_settings
-from main import app
+from backend.app.core.config import get_settings
+from backend.main import app
 
 
 USER_A = "72ff8e22-31c2-4a06-a287-dcccb706bc29"

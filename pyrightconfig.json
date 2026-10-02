@@ -1,0 +1,13 @@
+{
+  "include": [
+    "backend"
+  ],
+  "extraPaths": [
+    ".",
+    "backend"
+  ],
+  "pythonPlatform": "Windows",
+  "pythonVersion": "3.12",
+  "reportMissingImports": "none",
+  "reportMissingTypeStubs": false
+}

@@ -4,7 +4,7 @@ from uuid import UUID
 import httpx
 from fastapi import HTTPException
 
-from app.core.config import Settings
+from backend.app.core.config import Settings
 
 
 class ProfileService:

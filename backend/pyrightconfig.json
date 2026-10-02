@@ -1,0 +1,14 @@
+{
+  "include": [
+    "app",
+    "scripts",
+    "tests"
+  ],
+  "extraPaths": [
+    ".."
+  ],
+  "pythonPlatform": "Windows",
+  "pythonVersion": "3.12",
+  "reportMissingImports": "none",
+  "reportMissingTypeStubs": false
+}

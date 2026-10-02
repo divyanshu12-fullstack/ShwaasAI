@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.core.config import Settings, get_settings
-from app.core.security import AuthenticatedUser, get_current_user
-from app.models.profile import AuthTestResponse, Profile, ProfileUpdate
-from app.services.profile_service import ProfileService
+from backend.app.core.config import Settings, get_settings
+from backend.app.core.security import AuthenticatedUser, get_current_user
+from backend.app.models.profile import AuthTestResponse, Profile, ProfileUpdate
+from backend.app.services.profile_service import ProfileService
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])

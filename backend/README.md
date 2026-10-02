@@ -2,12 +2,12 @@
 
 Run `sql/profiles.sql`, `sql/sessions.sql`, and `sql/session_metadata.sql` in that order through the Supabase SQL Editor or a server-side PostgreSQL session pooler connection before using these routes. The sessions and metadata scripts are safe to rerun when the tables already have the documented schema. Keep `backend/.env` with `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` set. `SESSION_POOLER_URL` is for database administration/migrations; FastAPI routes use the caller's JWT through the Supabase Data API and do not use this connection string or the secret key.
 
-From `backend/`:
+From the repository root:
 
 ```powershell
-uv sync --extra dev
-uv run uvicorn main:app --reload
-uv run pytest
+uv sync --project backend --extra dev
+uv run --project backend uvicorn backend.main:app --reload
+uv run --project backend pytest backend/tests
 ```
 
 The mobile app should sign up, sign in, refresh, and sign out with Supabase Auth. For protected FastAPI calls, send `Authorization: Bearer <access_token>`.

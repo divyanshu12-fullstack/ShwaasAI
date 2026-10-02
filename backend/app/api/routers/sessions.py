@@ -3,11 +3,11 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, Query, Response, status
 
-from app.core.config import Settings, get_settings
-from app.core.security import AuthenticatedUser, get_current_user
-from app.models.session import InputType, SessionCreate, SessionList, SessionMetadataRead, SessionMetadataWrite, SessionRead
-from app.services.metadata_service import MetadataService
-from app.services.session_service import SessionService
+from backend.app.core.config import Settings, get_settings
+from backend.app.core.security import AuthenticatedUser, get_current_user
+from backend.app.models.session import InputType, SessionCreate, SessionList, SessionMetadataRead, SessionMetadataWrite, SessionRead
+from backend.app.services.metadata_service import MetadataService
+from backend.app.services.session_service import SessionService
 
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])

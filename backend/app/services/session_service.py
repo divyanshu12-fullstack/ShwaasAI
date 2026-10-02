@@ -6,8 +6,8 @@ from uuid import UUID
 import httpx
 from fastapi import HTTPException
 
-from app.core.config import Settings
-from app.models.session import InputType, SessionCreate
+from backend.app.core.config import Settings
+from backend.app.models.session import InputType, SessionCreate
 
 
 SESSION_COLUMNS = (

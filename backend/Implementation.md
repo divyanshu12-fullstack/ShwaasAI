@@ -100,3 +100,17 @@
 - Removed 29 files that were empty, except for the two-byte whitespace-only `Notes/index.txt`, and then removed seven directories left empty by that cleanup. These were unimplemented admin/analyze/health/hear/model/user routers, database and ML placeholders, unused request/response and service modules, empty scripts and tests, and the empty Notes folder. No working module imported them.
 - Kept the active auth, session, metadata, SQL, configuration, and test files; retained package `__init__.py` markers, project licensing, and the Supabase agent skills. This leaves the backend focused on the routes that actually exist while future features can add their files when implemented.
 - Re-ran the full local test suite after the removals: **22 passed**.
+
+## 2026-10-02 — Merge checkout verification
+
+- Checked `main` after the staged ML/API merge. Git reports all conflicts resolved but `MERGE_HEAD` remains, so the merge has not been committed and `origin/main` still points to the prior backend commit. No merge commit or index changes were made during this check.
+- With the merged ML dependencies installed in a separate temporary environment, the complete test suite passed: **29 passed**, with warnings about loading serialized scikit-learn/XGBoost models from different library versions.
+- Found deployment blockers that the pytest path configuration masks: `import main` from `backend/` fails because `main.py` imports `backend.*`; `import backend.main` from the repository root fails because existing auth/session modules import `app.*`. The two import styles must be unified before normal startup works.
+- `backend/.python-version` specifies 3.14 while `pyproject.toml` requires Python `<3.13`; `uv lock --check` with a compatible 3.12 interpreter confirms `uv.lock` is stale. The new multipart upload route also requires `python-multipart`, which is not declared in `pyproject.toml` or locked. Verification installed dependencies only in a temporary environment; the repository's staged merge files were not modified.
+
+## 2026-10-02 — Merge integration fixes
+
+- Unified auth/session modules and their tests on `backend.app.*` imports so the merged application starts normally as `backend.main` from the repository root. Restricted pytest's `pythonpath` to the repository root so future tests cannot hide mixed import paths.
+- Changed `.python-version` to 3.12, matching the project's supported range. Added the multipart parser required by the upload endpoint and pinned scikit-learn to 1.7.2, the version used to serialize the checked-in model; this restored loading of the multimodal model. Removed the incorrect `uv_build` package configuration and nonexistent console entry point, marking this repository as an application project with `[tool.uv] package = false`.
+- Regenerated `uv.lock` and updated both READMEs to show commands run from the repository root with `--project backend`. Aligned both Pyright configurations to Python 3.12 and removed machine-specific site-package paths.
+- Verified a clean `uv sync --locked --extra dev` in a separate environment, `uv lock --check`, and the documented `uv run --locked --project backend pytest backend/tests` workflow: **29 passed**. A startup smoke check returned 200 for `/` and `/api/v1/analyze/status`, 401 for `/api/v1/auth/test` without a token, and showed all three packaged model groups loaded. XGBoost still emits a compatibility warning for its older serialized model, but loading and predictions passed.

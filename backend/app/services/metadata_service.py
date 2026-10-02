@@ -4,9 +4,9 @@ from uuid import UUID
 import httpx
 from fastapi import HTTPException
 
-from app.core.config import Settings
-from app.models.session import SessionMetadataWrite
-from app.services.session_service import SessionService
+from backend.app.core.config import Settings
+from backend.app.models.session import SessionMetadataWrite
+from backend.app.services.session_service import SessionService
 
 
 METADATA_COLUMNS = (
